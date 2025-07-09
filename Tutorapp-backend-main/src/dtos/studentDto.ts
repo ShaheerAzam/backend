@@ -1,0 +1,10 @@
+import { z } from "zod";
+import {
+  createStudentSchema,
+  updateStudentProfileSchema,
+} from "../utils/validationSchemas";
+
+export type CreateStudentDto = z.infer<typeof createStudentSchema>;
+export type UpdateStudentProfileDto = z.infer<
+  typeof updateStudentProfileSchema
+>;

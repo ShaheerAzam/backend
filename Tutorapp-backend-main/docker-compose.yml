@@ -1,0 +1,26 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - MONGO_URI=${MONGO_URI}
+    volumes:
+      - .:/app
+      - /app/node_modules
+  app-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - MONGO_URI=${MONGO_URI}
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npx ts-node-dev --respawn --poll --transpile-only src/app.ts
