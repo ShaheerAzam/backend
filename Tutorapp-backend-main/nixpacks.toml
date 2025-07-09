@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ['nodejs', 'nodePackages.typescript']
+
+[phases.build]
+cmds = ["npm ci", "npm run build"]
+
+[phases.start]
+cmd = "node dist/app.js"
