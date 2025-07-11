@@ -4,9 +4,11 @@ import {
   updateStudentProfile,
   updateStudent,
   deleteStudent,
+  changeStudentPassword,
 } from "../controllers/studentController";
 import { validateRequest } from "../middleware/validateRequest";
 import {
+  changeStudentPasswordSchema,
   createStudentSchema,
   updateStudentProfileSchema,
 } from "../utils/validationSchemas";
@@ -38,5 +40,6 @@ router.delete(
   authMiddleware("admin"),
   deleteStudent
 );
+router.patch('/change-password', authMiddleware(), validateRequest(changeStudentPasswordSchema), changeStudentPassword);
 
 export default router;

@@ -12,8 +12,10 @@ const authService = new AuthService();
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const dto: LoginDto = req.body;
+  
     const { accessToken, refreshToken, userType, userId } =
       await authService.login(dto);
+    
     res.status(200).json({
       message: "Login successful",
       data: { accessToken, refreshToken, userType, userId },

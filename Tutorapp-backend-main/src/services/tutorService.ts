@@ -1,5 +1,5 @@
 import { ITutor, TutorModel } from "../models/tutor";
-import { CreateTutorDto } from "../dtos/tutorDto";
+import { ChangeTutorPasswordDto, CreateTutorDto } from "../dtos/tutorDto";
 import bcrypt from "bcryptjs";
 import { BadRequestError, UnauthorizedError } from "../utils/errors";
 import { logger } from "../utils/logger";
@@ -130,5 +130,35 @@ export class TutorService {
     }
 
     logger.info(`Tutor deleted by admin: ${tutorId}`);
+  }
+
+  async changeTutorPassword(tutorId: string, dto: ChangeTutorPasswordDto, requesterId: string, requesterType: string): Promise<ITutor> {
+    if (requesterType !== 'tutor' || requesterId !== tutorId) {
+      logger.warn(`Unauthorized password change attempt by ${requesterType}: ${requesterId}`);
+      throw new UnauthorizedError('You can only change your own password');
+    }
+
+    const tutor = await TutorModel.findById(tutorId);
+    if (!tutor) {
+      logger.warn(`Tutor not found: ${tutorId}`);
+      throw new BadRequestError('Tutor not found');
+    }
+
+    const isPasswordValid = await bcrypt.compare(dto.currentPassword, tutor.password);
+    if (!isPasswordValid) {
+      logger.warn(`Invalid current password for tutor: ${tutorId}`);
+      throw new BadRequestError('Current password is incorrect');
+    }
+
+    tutor.password = await bcrypt.hash(dto.newPassword, 10);
+
+    try {
+      await tutor.save();
+      logger.info(`Tutor password changed: ${tutorId}`);
+      return tutor;
+    } catch (error) {
+      logger.error(`Failed to change tutor password ${tutorId}: ${error instanceof Error ? error.message : 'Unknown error'}`, error);
+      throw new BadRequestError('Failed to change tutor password');
+    }
   }
 }

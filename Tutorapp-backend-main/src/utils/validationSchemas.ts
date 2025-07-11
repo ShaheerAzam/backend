@@ -134,3 +134,13 @@ export const updateTutorProfileSchema = z
   });
 
 export const cancelLessonSchema = z.object({});
+
+export const changeStudentPasswordSchema = z.object({
+  currentPassword: z.string().min(8, 'Current password must be at least 8 characters'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+});
+
+export const changeTutorPasswordSchema = z.object({
+  currentPassword: z.string().min(8, 'Current password must be at least 8 characters'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+});

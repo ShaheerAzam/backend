@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { TutorService } from "../services/tutorService";
-import { CreateTutorDto } from "../dtos/tutorDto";
+import { ChangeTutorPasswordDto, CreateTutorDto } from "../dtos/tutorDto";
 import { logger } from "../utils/logger";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
 import { UpdateTutorProfileDto } from "../dtos/lessonDto";
@@ -150,6 +150,26 @@ export async function deleteTutor(
       `Delete tutor error: ${error instanceof Error ? error.message : "Unknown error"}`,
       error
     );
+    next(error);
+  }
+}
+
+export async function changeTutorPassword(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const dto: ChangeTutorPasswordDto = req.body;
+    const tutor = await tutorService.changeTutorPassword(req.user!.userId, dto, req.user!.userId, req.user!.userType);
+    res.status(200).json({
+      message: 'Tutor password changed successfully',
+      data: {
+        id: tutor._id,
+        fullName: tutor.fullName,
+        email: tutor.email,
+        phoneNumber: tutor.phoneNumber,
+        hourlyRate: tutor.hourlyRate,
+      },
+    });
+  } catch (error) {
+    logger.error(`Change tutor password error: ${error instanceof Error ? error.message : 'Unknown error'}`, error);
     next(error);
   }
 }
