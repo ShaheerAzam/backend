@@ -90,10 +90,10 @@ export class EmailService {
                 <p><strong>Temporary Password:</strong> ${data.tempPassword}</p>
               </div>
               
-              <p><strong>Important:</strong> For security reasons, you will be required to change your password on your first login.</p>
+              <p><strong>Important:</strong> For security reasons, you are requested to change your password on your first login.</p>
               
               <p>
-                <a href="${data.dashboardUrl}" class="button">Access Your Dashboard</a>
+                <a href="https://shaheerazam.github.io/matte-hjelp-connect/" class="button">Access Your Dashboard</a>
               </p>
               
               <p>If you have any questions or need assistance, please contact our admin team.</p>
