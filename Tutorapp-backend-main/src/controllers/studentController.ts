@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { StudentService } from "../services/studentService";
-import { CreateStudentDto, UpdateStudentProfileDto } from "../dtos/studentDto";
+import { ChangeStudentPasswordDto, CreateStudentDto, UpdateStudentProfileDto } from "../dtos/studentDto";
 import { logger } from "../utils/logger";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
 
@@ -110,6 +110,27 @@ export async function deleteStudent(
       `Delete student error: ${error instanceof Error ? error.message : "Unknown error"}`,
       error
     );
+    next(error);
+  }
+
+  
+}
+
+export async function changeStudentPassword(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const dto: ChangeStudentPasswordDto = req.body;
+    const student = await studentService.changeStudentPassword(req.user!.userId, dto, req.user!.userId, req.user!.userType);
+    res.status(200).json({
+      message: 'Student password changed successfully',
+      data: {
+        id: student._id,
+        studentName: student.studentName,
+        email: student.email,
+        phoneNumber: student.phoneNumber,
+      },
+    });
+  } catch (error) {
+    logger.error(`Change student password error: ${error instanceof Error ? error.message : 'Unknown error'}`, error);
     next(error);
   }
 }

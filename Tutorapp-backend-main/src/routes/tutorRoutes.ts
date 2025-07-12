@@ -5,9 +5,11 @@ import {
   getTutorEarnings,
   updateTutor,
   deleteTutor,
+  changeTutorPassword,
 } from "../controllers/tutorController";
 import { validateRequest } from "../middleware/validateRequest";
 import {
+  changeTutorPasswordSchema,
   createTutorSchema,
   updateTutorProfileSchema,
 } from "../utils/validationSchemas";
@@ -42,5 +44,7 @@ router.delete(
   authMiddleware("admin"),
   deleteTutor
 );
+
+router.patch('/change-password', authMiddleware(), validateRequest(changeTutorPasswordSchema), changeTutorPassword);
 
 export default router;

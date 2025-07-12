@@ -7,4 +7,5 @@ import {
 export type CreateStudentDto = z.infer<typeof createStudentSchema>;
 export type UpdateStudentProfileDto = z.infer<
   typeof updateStudentProfileSchema
->;
+  >;
+  export type ChangeStudentPasswordDto = z.infer<typeof changeStudentPasswordSchema>;

@@ -46,6 +46,7 @@ export class AuthService {
     // Verify password
     const isMatch = await bcrypt.compare(dto.password, user.password);
     if (!isMatch) {
+      
       logger.warn(`Invalid password for ${userType}: ${dto.email}`);
       throw new UnauthorizedError("Invalid email or password");
     }

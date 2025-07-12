@@ -1,5 +1,5 @@
 import { IStudent, StudentModel } from "../models/student";
-import { CreateStudentDto, UpdateStudentProfileDto } from "../dtos/studentDto";
+import { ChangeStudentPasswordDto, CreateStudentDto, UpdateStudentProfileDto } from "../dtos/studentDto";
 import bcrypt from "bcryptjs";
 import { BadRequestError, UnauthorizedError } from "../utils/errors";
 import { logger } from "../utils/logger";
@@ -128,5 +128,35 @@ export class StudentService {
     }
 
     logger.info(`Student deleted by admin: ${studentId}`);
+  }
+
+  async changeStudentPassword(studentId: string, dto: ChangeStudentPasswordDto, requesterId: string, requesterType: string): Promise<IStudent> {
+    if (requesterType !== 'student' || requesterId !== studentId) {
+      logger.warn(`Unauthorized password change attempt by ${requesterType}: ${requesterId}`);
+      throw new UnauthorizedError('You can only change your own password');
+    }
+
+    const student = await StudentModel.findById(studentId);
+    if (!student) {
+      logger.warn(`Student not found: ${studentId}`);
+      throw new BadRequestError('Student not found');
+    }
+
+    const isPasswordValid = await bcrypt.compare(dto.currentPassword, student.password);
+    if (!isPasswordValid) {
+      logger.warn(`Invalid current password for student: ${studentId}`);
+      throw new BadRequestError('Current password is incorrect');
+    }
+
+    student.password = await bcrypt.hash(dto.newPassword, 10);
+
+    try {
+      await student.save();
+      logger.info(`Student password changed: ${studentId}`);
+      return student;
+    } catch (error) {
+      logger.error(`Failed to change student password ${studentId}: ${error instanceof Error ? error.message : 'Unknown error'}`, error);
+      throw new BadRequestError('Failed to change student password');
+    }
   }
 }
