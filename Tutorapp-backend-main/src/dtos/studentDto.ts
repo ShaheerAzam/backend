@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   createStudentSchema,
   updateStudentProfileSchema,
+  changeStudentPasswordSchema,
 } from "../utils/validationSchemas";
 
 export type CreateStudentDto = z.infer<typeof createStudentSchema>;
