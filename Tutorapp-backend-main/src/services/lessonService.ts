@@ -9,16 +9,19 @@ import {
 } from "../dtos/lessonDto";
 import { BadRequestError, UnauthorizedError } from "../utils/errors";
 import { logger } from "../utils/logger";
+import { EmailService } from "./emailService";
 
 interface LessonResponse {
   lessonId: Types.ObjectId;
   lessonDate: Date;
   lessonTime: string;
   duration: number;
-  subject: string;
+  level: string;
   topic: string;
   type: "online" | "in-person";
   location?: string;
+  tutorId: Types.ObjectId;
+  studentId: Types.ObjectId;
   tutorName?: string;
   studentName?: string;
   status: string;
@@ -33,12 +36,12 @@ interface PopulatedLesson {
   lessonTime: string;
   duration: number;
   status: string;
-  subject: string;
+  level: string;
   topic: string;
   type: "online" | "in-person";
   location?: string;
-  tutorId: { fullName: string };
-  studentId: { studentName: string };
+  tutorId: { _id: Types.ObjectId; fullName: string };
+  studentId: { _id: Types.ObjectId; studentName: string };
   bundleId?: Types.ObjectId | null;
   tutorPaid: boolean;
   _id: Types.ObjectId;
@@ -46,6 +49,11 @@ interface PopulatedLesson {
 }
 
 export class LessonService {
+  private emailService: EmailService;
+
+  constructor() {
+    this.emailService = new EmailService();
+  }
   private async validateParticipants(
     tutorId: string,
     studentId: string
@@ -154,7 +162,7 @@ export class LessonService {
       lessonDate,
       lessonTime: dto.lessonTime,
       duration: dto.duration,
-      subject: dto.subject,
+      level: dto.level,
       topic: dto.topic,
       type: dto.type,
       location: dto.location,
@@ -172,6 +180,35 @@ export class LessonService {
       await TutorModel.findByIdAndUpdate(dto.tutorId, {
         $push: { assignedLessons: lesson._id },
       });
+
+      // Send email notifications
+      try {
+        const [tutor, student] = await Promise.all([
+          TutorModel.findById(dto.tutorId),
+          StudentModel.findById(dto.studentId)
+        ]);
+
+        if (tutor && student) {
+          await this.emailService.sendLessonAssignmentEmail({
+            tutorEmail: tutor.email,
+            tutorName: tutor.fullName,
+            studentEmail: student.email,
+            studentName: student.studentName,
+            lessonDate: lessonDate,
+            lessonTime: dto.lessonTime,
+            duration: dto.duration,
+            level: dto.level,
+            topic: dto.topic,
+            type: dto.type,
+            location: dto.location,
+            dashboardUrl: process.env.FRONTEND_URL || "https://shaheerazam.github.io/matte-hjelp-connect/"
+          });
+        }
+      } catch (emailError) {
+        logger.error(`Failed to send lesson assignment emails: ${emailError instanceof Error ? emailError.message : "Unknown error"}`);
+        // Don't throw error for email failures, just log them
+      }
+
       logger.info(
         `Lesson created: ${lesson._id} for student ${dto.studentId} with tutor ${dto.tutorId}`
       );
@@ -220,7 +257,7 @@ export class LessonService {
         lessonDate,
         lessonTime: dto.lessonTime,
         duration: dto.duration,
-        subject: dto.subject,
+        level: dto.level,
         topic: dto.topic,
         type: dto.type,
         location: dto.location,
@@ -278,12 +315,14 @@ export class LessonService {
         lessonDate: lesson.lessonDate,
         lessonTime: lesson.lessonTime,
         duration: lesson.duration,
-        subject: lesson.subject,
+        level: lesson.level,
         topic: lesson.topic,
         type: lesson.type,
         location: lesson.location,
-        tutorName: lesson.tutorId?.fullName,
-        studentName: lesson.studentId?.studentName,
+        tutorId: typeof lesson.tutorId === 'object' && lesson.tutorId !== null ? lesson.tutorId._id : lesson.tutorId,
+        studentId: typeof lesson.studentId === 'object' && lesson.studentId !== null ? lesson.studentId._id : lesson.studentId,
+        tutorName: typeof lesson.tutorId === 'object' && lesson.tutorId !== null ? lesson.tutorId.fullName : undefined,
+        studentName: typeof lesson.studentId === 'object' && lesson.studentId !== null ? lesson.studentId.studentName : undefined,
         status: this.mapStatus(lesson.status),
         bundleId: lesson.bundleId,
         tutorPaid: lesson.tutorPaid,
@@ -330,6 +369,8 @@ export class LessonService {
       );
     }
 
+    const oldDate = lesson.lessonDate;
+    const oldTime = lesson.lessonTime;
     const newDate = dto.newDate ? new Date(dto.newDate) : lesson.lessonDate;
     const newTime = dto.newTime || lesson.lessonTime;
 
@@ -339,6 +380,38 @@ export class LessonService {
 
     try {
       await lesson.save();
+
+      // Send email notifications
+      try {
+        const [tutor, student] = await Promise.all([
+          TutorModel.findById(lesson.tutorId),
+          StudentModel.findById(lesson.studentId)
+        ]);
+
+        if (tutor && student) {
+          await this.emailService.sendLessonRescheduleEmail({
+            tutorEmail: tutor.email,
+            tutorName: tutor.fullName,
+            studentEmail: student.email,
+            studentName: student.studentName,
+            oldDate: oldDate,
+            oldTime: oldTime,
+            newDate: newDate,
+            newTime: newTime,
+            duration: lesson.duration,
+            level: lesson.level,
+            topic: lesson.topic,
+            type: lesson.type,
+            location: lesson.location,
+            rescheduledBy: requesterType as "tutor" | "admin",
+            dashboardUrl: process.env.FRONTEND_URL || "https://shaheerazam.github.io/matte-hjelp-connect/"
+          });
+        }
+      } catch (emailError) {
+        logger.error(`Failed to send lesson reschedule emails: ${emailError instanceof Error ? emailError.message : "Unknown error"}`);
+        // Don't throw error for email failures, just log them
+      }
+
       logger.info(
         `Lesson rescheduled: ${lessonId} to ${newDate.toISOString().split("T")[0]} ${newTime} by ${requesterType} ${requesterId}`
       );
@@ -422,6 +495,34 @@ export class LessonService {
         $pull: { delegatedLessons: lesson._id },
       });
 
+      // Send email notifications
+      try {
+        const [tutor, student] = await Promise.all([
+          TutorModel.findById(lesson.tutorId),
+          StudentModel.findById(lesson.studentId)
+        ]);
+
+        if (tutor && student) {
+          await this.emailService.sendLessonCancellationEmail({
+            tutorEmail: tutor.email,
+            tutorName: tutor.fullName,
+            studentEmail: student.email,
+            studentName: student.studentName,
+            lessonDate: lesson.lessonDate,
+            lessonTime: lesson.lessonTime,
+            duration: lesson.duration,
+            level: lesson.level,
+            topic: lesson.topic,
+            cancelledBy: requesterType as "tutor" | "student" | "admin",
+            tutorPaid: lesson.tutorPaid,
+            dashboardUrl: process.env.FRONTEND_URL || "https://shaheerazam.github.io/matte-hjelp-connect/"
+          });
+        }
+      } catch (emailError) {
+        logger.error(`Failed to send lesson cancellation emails: ${emailError instanceof Error ? emailError.message : "Unknown error"}`);
+        // Don't throw error for email failures, just log them
+      }
+
       const paymentNote = lesson.tutorPaid ? " (Tutor will be paid due to late cancellation)" : "";
       logger.info(
         `Lesson cancelled: ${lessonId} by ${requesterType} ${requesterId}${paymentNote}`
@@ -488,7 +589,7 @@ export class LessonService {
     if (updateData.lessonDate) lesson.lessonDate = new Date(updateData.lessonDate);
     if (updateData.lessonTime) lesson.lessonTime = updateData.lessonTime;
     if (updateData.duration) lesson.duration = updateData.duration;
-    if (updateData.subject) lesson.subject = updateData.subject;
+    if (updateData.level) lesson.level = updateData.level;
     if (updateData.topic) lesson.topic = updateData.topic;
     if (updateData.type) lesson.type = updateData.type;
     if (updateData.location !== undefined) lesson.location = updateData.location;
@@ -516,69 +617,127 @@ export class LessonService {
   }
 
   async updateExpiredLessons(): Promise<void> {
-    try {
-      const now = new Date();
+    const now = new Date();
+    const expiredLessons = await LessonModel.find({
+      status: "Incoming",
+      $or: [
+        {
+          lessonDate: { $lt: now },
+        },
+        {
+          $and: [
+            { lessonDate: now },
+            {
+              lessonTime: {
+                $lt: now.toTimeString().slice(0, 5),
+              },
+            },
+          ],
+        },
+      ],
+    });
 
-      // Find all Active lessons that should be completed
-      const activeLessons = await LessonModel.find({
-        status: "Active"
-      });
-
-      const lessonsToComplete = activeLessons.filter(lesson => {
-        const lessonDateTime = new Date(lesson.lessonDate);
-        const [hours, minutes] = lesson.lessonTime.split(":").map(Number);
-        lessonDateTime.setHours(hours, minutes, 0, 0);
-
-        const lessonEndTime = new Date(lessonDateTime.getTime() + lesson.duration * 60 * 1000);
-        return now >= lessonEndTime;
-      });
-
-      if (lessonsToComplete.length > 0) {
-        const lessonIds = lessonsToComplete.map(lesson => lesson._id);
-
-        await LessonModel.updateMany(
-          { _id: { $in: lessonIds } },
-          { $set: { status: "Completed" } }
-        );
-
-        logger.info(
-          `Auto-completed ${lessonsToComplete.length} lessons: ${lessonIds.join(", ")}`
-        );
-      }
-
-      // Also update Incoming lessons that should now be Active
-      const incomingLessons = await LessonModel.find({
-        status: "Incoming"
-      });
-
-      const lessonsToActivate = incomingLessons.filter(lesson => {
-        const lessonDateTime = new Date(lesson.lessonDate);
-        const [hours, minutes] = lesson.lessonTime.split(":").map(Number);
-        lessonDateTime.setHours(hours, minutes, 0, 0);
-
-        const lessonEndTime = new Date(lessonDateTime.getTime() + lesson.duration * 60 * 1000);
-        return now >= lessonDateTime && now < lessonEndTime;
-      });
-
-      if (lessonsToActivate.length > 0) {
-        const activateIds = lessonsToActivate.map(lesson => lesson._id);
-
-        await LessonModel.updateMany(
-          { _id: { $in: activateIds } },
-          { $set: { status: "Active" } }
-        );
-
-        logger.info(
-          `Auto-activated ${lessonsToActivate.length} lessons: ${activateIds.join(", ")}`
-        );
-      }
-
-    } catch (error) {
-      logger.error(
-        `Failed to update expired lessons: ${error instanceof Error ? error.message : "Unknown error"}`,
-        error
+    if (expiredLessons.length > 0) {
+      await LessonModel.updateMany(
+        { _id: { $in: expiredLessons.map((lesson) => lesson._id) } },
+        { status: "Completed" }
       );
+      logger.info(`Updated ${expiredLessons.length} expired lessons to completed status`);
     }
+  }
+
+  async bulkUpdateLessons(
+    lessonIds: string[],
+    updateData: any,
+    requesterId: string,
+    requesterType: string
+  ): Promise<ILesson[]> {
+    if (requesterType !== "admin") {
+      logger.warn(
+        `Unauthorized bulk lesson update attempt by ${requesterType}: ${requesterId}`
+      );
+      throw new UnauthorizedError("Only admins can perform bulk lesson updates");
+    }
+
+    if (!lessonIds || lessonIds.length === 0) {
+      throw new BadRequestError("At least one lesson ID is required");
+    }
+
+    // Validate that all lessons exist
+    const existingLessons = await LessonModel.find({
+      _id: { $in: lessonIds.map(id => new Types.ObjectId(id)) }
+    });
+
+    if (existingLessons.length !== lessonIds.length) {
+      throw new BadRequestError("One or more lessons not found");
+    }
+
+    // Prepare update data
+    const updateFields: any = {};
+
+    if (updateData.duration !== undefined) {
+      updateFields.duration = updateData.duration;
+    }
+    if (updateData.level !== undefined) {
+      updateFields.level = updateData.level;
+    }
+    if (updateData.topic !== undefined) {
+      updateFields.topic = updateData.topic;
+    }
+    if (updateData.type !== undefined) {
+      updateFields.type = updateData.type;
+      // Clear location if switching to online
+      if (updateData.type === "online") {
+        updateFields.location = undefined;
+      }
+    }
+    if (updateData.location !== undefined) {
+      updateFields.location = updateData.location;
+    }
+    if (updateData.lessonTime !== undefined) {
+      updateFields.lessonTime = updateData.lessonTime;
+    }
+    if (updateData.tutorId !== undefined) {
+      // Validate tutor exists
+      const tutor = await TutorModel.findById(updateData.tutorId);
+      if (!tutor) {
+        throw new BadRequestError("Tutor not found");
+      }
+      updateFields.tutorId = new Types.ObjectId(updateData.tutorId);
+    }
+    if (updateData.studentId !== undefined) {
+      // Validate student exists
+      const student = await StudentModel.findById(updateData.studentId);
+      if (!student) {
+        throw new BadRequestError("Student not found");
+      }
+      updateFields.studentId = new Types.ObjectId(updateData.studentId);
+    }
+
+    if (Object.keys(updateFields).length === 0) {
+      throw new BadRequestError("No valid fields to update");
+    }
+
+    // Update lessons
+    const result = await LessonModel.updateMany(
+      { _id: { $in: lessonIds.map(id => new Types.ObjectId(id)) } },
+      { $set: updateFields }
+    );
+
+    if (result.modifiedCount === 0) {
+      throw new BadRequestError("No lessons were updated");
+    }
+
+    // Fetch updated lessons
+    const updatedLessons = await LessonModel.find({
+      _id: { $in: lessonIds.map(id => new Types.ObjectId(id)) }
+    });
+
+    logger.info(
+      `Bulk updated ${result.modifiedCount} lessons by admin ${requesterId}`
+    );
+
+    return updatedLessons;
   }
 
   async completeLesson(
@@ -586,63 +745,60 @@ export class LessonService {
     requesterId: string,
     requesterType: string
   ): Promise<ILesson> {
-    if (requesterType !== "admin" && requesterType !== "tutor") {
-      logger.warn(
-        `Unauthorized complete attempt by ${requesterType}: ${requesterId}`
-      );
-      throw new UnauthorizedError(
-        "Only admins or tutors can mark lessons as completed"
-      );
-    }
-
     const lesson = await LessonModel.findById(lessonId);
     if (!lesson) {
       logger.warn(`Lesson not found: ${lessonId}`);
       throw new BadRequestError("Lesson not found");
     }
 
-    if (
-      requesterType === "tutor" &&
-      lesson.tutorId.toString() !== requesterId
-    ) {
+    if (requesterType !== "admin" && requesterId !== lesson.tutorId.toString()) {
       logger.warn(
-        `Tutor ${requesterId} not authorized to complete lesson ${lessonId}`
+        `Unauthorized lesson completion attempt by ${requesterType}: ${requesterId}`
       );
       throw new UnauthorizedError(
-        "You are not the assigned tutor for this lesson"
+        "Only the assigned tutor or an admin can complete a lesson"
       );
-    }
-
-    if (lesson.status === "Completed") {
-      logger.warn(`Lesson already completed: ${lessonId}`);
-      throw new BadRequestError("Lesson is already completed");
-    }
-
-    if (lesson.status === "Cancelled") {
-      logger.warn(`Cannot complete cancelled lesson: ${lessonId}`);
-      throw new BadRequestError("Cannot complete a cancelled lesson");
     }
 
     lesson.status = "Completed";
+    await lesson.save();
 
+    // Send email notifications
     try {
-      await lesson.save();
-      logger.info(
-        `Lesson completed: ${lessonId} by ${requesterType} ${requesterId}`
-      );
-      return lesson;
-    } catch (error) {
-      logger.error(
-        `Failed to complete lesson ${lessonId}: ${error instanceof Error ? error.message : "Unknown error"}`,
-        error
-      );
-      throw new BadRequestError("Failed to complete lesson");
+      const [tutor, student] = await Promise.all([
+        TutorModel.findById(lesson.tutorId),
+        StudentModel.findById(lesson.studentId)
+      ]);
+
+      if (tutor && student) {
+        await this.emailService.sendLessonCompletionEmail({
+          tutorEmail: tutor.email,
+          tutorName: tutor.fullName,
+          studentEmail: student.email,
+          studentName: student.studentName,
+          lessonDate: lesson.lessonDate,
+          lessonTime: lesson.lessonTime,
+          duration: lesson.duration,
+          level: lesson.level,
+          topic: lesson.topic,
+          dashboardUrl: process.env.FRONTEND_URL || "https://shaheerazam.github.io/matte-hjelp-connect/"
+        });
+      }
+    } catch (emailError) {
+      logger.error(`Failed to send lesson completion emails: ${emailError instanceof Error ? emailError.message : "Unknown error"}`);
+      // Don't throw error for email failures, just log them
     }
+
+    logger.info(
+      `Lesson ${lessonId} completed by ${requesterType}: ${requesterId}`
+    );
+    return lesson;
   }
 
   private mapStatus(dbStatus: string): "scheduled" | "completed" | "cancelled" {
     if (dbStatus === "Cancelled") return "cancelled";
     if (dbStatus === "Completed") return "completed";
-    return "scheduled"; // Incoming/Active
+    return "scheduled";
   }
 }
+

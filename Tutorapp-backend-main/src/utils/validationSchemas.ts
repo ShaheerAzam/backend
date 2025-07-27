@@ -41,39 +41,34 @@ export const logoutSchema = z.object({
 });
 
 export const createLessonSchema = z.object({
-  lessonDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date format",
+  lessonDate: z.string().min(1, "Lesson date is required"),
+  lessonTime: z.string().min(1, "Lesson time is required"),
+  duration: z.number().min(1, "Duration must be at least 1 minute").max(300, "Duration cannot exceed 5 hours (300 minutes)"),
+  level: z.enum(["1st grade", "2nd grade", "3rd grade", "4th grade", "5th grade", "6th grade", "7th grade", "8th grade", "9th grade", "10th grade", "1T", "1P", "2P", "S1", "R1", "S2", "R2"], {
+    required_error: "Level is required",
+    invalid_type_error: "Please select a valid level"
   }),
-  lessonTime: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
-  duration: z.number().min(1, "Duration must be at least 1 minute"),
-  subject: z.string().min(1, "Subject is required").trim(),
   topic: z.string().min(1, "Topic is required").trim(),
-  type: z.enum(["online", "in-person"]),
-  location: z.string().trim().optional(),
-  tutorId: z.string().min(1, "Tutor ID is required"),
-  studentId: z.string().min(1, "Student ID is required"),
+  type: z.enum(["online", "in-person"]).default("online"),
+  location: z.string().optional(),
+  tutorId: z.string().min(1, "Tutor is required"),
+  studentId: z.string().min(1, "Student is required"),
 });
 
 export const createLessonBundleSchema = z.object({
-  lessonTime: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)"),
-  duration: z.number().min(1, "Duration must be at least 1 minute"),
-  subject: z.string().min(1, "Subject is required").trim(),
-  topic: z.string().min(1, "Topic is required").trim(),
-  type: z.enum(["online", "in-person"]),
-  location: z.string().trim().optional(),
-  numberOfLessons: z
-    .number()
-    .min(1, "Number of lessons must be at least 1")
-    .max(52, "Cannot schedule more than 52 lessons"),
-  firstLessonDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date format",
+  firstLessonDate: z.string().min(1, "First lesson date is required"),
+  lessonTime: z.string().min(1, "Lesson time is required"),
+  duration: z.number().min(1, "Duration must be at least 1 minute").max(300, "Duration cannot exceed 5 hours (300 minutes)"),
+  level: z.enum(["1st grade", "2nd grade", "3rd grade", "4th grade", "5th grade", "6th grade", "7th grade", "8th grade", "9th grade", "10th grade", "1T", "1P", "2P", "S1", "R1", "S2", "R2"], {
+    required_error: "Level is required",
+    invalid_type_error: "Please select a valid level"
   }),
-  studentId: z.string().min(1, "Student ID is required"),
-  tutorId: z.string().min(1, "Tutor ID is required"),
+  topic: z.string().min(1, "Topic is required").trim(),
+  type: z.enum(["online", "in-person"]).default("online"),
+  location: z.string().optional(),
+  numberOfLessons: z.number().min(1, "Number of lessons must be at least 1").max(36, "Cannot schedule more than 36 lessons"),
+  tutorId: z.string().min(1, "Tutor is required"),
+  studentId: z.string().min(1, "Student is required"),
 });
 
 export const rescheduleLessonSchema = z
@@ -143,4 +138,20 @@ export const changeStudentPasswordSchema = z.object({
 export const changeTutorPasswordSchema = z.object({
   currentPassword: z.string().min(8, 'Current password must be at least 8 characters'),
   newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+});
+
+export const bulkUpdateLessonsSchema = z.object({
+  lessonIds: z.array(z.string()).min(1, "At least one lesson ID is required"),
+  updateData: z.object({
+    duration: z.number().min(1, "Duration must be at least 1 minute").max(300, "Duration cannot exceed 5 hours (300 minutes)").optional(),
+    level: z.enum(["1st grade", "2nd grade", "3rd grade", "4th grade", "5th grade", "6th grade", "7th grade", "8th grade", "9th grade", "10th grade", "1T", "1P", "2P", "S1", "R1", "S2", "R2"]).optional(),
+    topic: z.string().min(1, "Topic is required").trim().optional(),
+    type: z.enum(["online", "in-person"]).optional(),
+    location: z.string().optional(),
+    lessonTime: z.string().min(1, "Lesson time is required").optional(),
+    tutorId: z.string().min(1, "Tutor is required").optional(),
+    studentId: z.string().min(1, "Student is required").optional(),
+  }).refine((data) => Object.keys(data).length > 0, {
+    message: "At least one field must be provided for update"
+  }),
 });

@@ -4,9 +4,15 @@ import { LessonModel } from "../models/lesson";
 import { TutorModel } from "../models/tutor";
 import { logger } from "../utils/logger";
 import { BadRequestError, NotFoundError, UnauthorizedError } from "../utils/errors";
-import { startOfWeek, endOfWeek, addWeeks, format, isAfter, isBefore } from "date-fns";
+import { startOfWeek, endOfWeek, addWeeks, format, isAfter, isBefore, parseISO } from "date-fns";
+import { EmailService } from "./emailService";
 
 export class EarningsApprovalService {
+    private emailService: EmailService;
+
+    constructor() {
+        this.emailService = new EmailService();
+    }
 
     // Generate bi-weekly periods for all tutors
     async generateBiWeeklyApprovals(): Promise<void> {
@@ -152,6 +158,26 @@ export class EarningsApprovalService {
 
             await approval.save();
 
+            // Send email notification to tutor
+            try {
+                const tutor = await TutorModel.findById(approval.tutorId);
+                if (tutor) {
+                    await this.emailService.sendPaymentApprovalEmail({
+                        tutorEmail: tutor.email,
+                        tutorName: tutor.fullName,
+                        periodStart: format(approval.periodStart, 'MMM dd, yyyy'),
+                        periodEnd: format(approval.periodEnd, 'MMM dd, yyyy'),
+                        totalHours: approval.totalHours,
+                        totalAmount: approval.totalAmount,
+                        decision: decision,
+                        dashboardUrl: process.env.FRONTEND_URL || "https://shaheerazam.github.io/matte-hjelp-connect/"
+                    });
+                }
+            } catch (emailError) {
+                logger.error(`Failed to send payment approval email: ${emailError instanceof Error ? emailError.message : "Unknown error"}`);
+                // Don't throw error for email failures, just log them
+            }
+
             logger.info(
                 `Earnings approval ${approvalId} ${decision} by admin ${adminId}`
             );
@@ -203,6 +229,151 @@ export class EarningsApprovalService {
                 error
             );
             throw new BadRequestError("Failed to fetch tutor earnings");
+        }
+    }
+
+    // Get enhanced earnings data for admin dashboard
+    async getEnhancedEarningsData(): Promise<any[]> {
+        try {
+            const tutors = await TutorModel.find();
+            const enhancedData = [];
+
+            for (const tutor of tutors) {
+                const tutorApprovals = await EarningsApprovalModel.find({
+                    tutorId: tutor._id,
+                }).sort({ periodStart: -1 }).limit(6); // Last 6 periods
+
+                const periods = await Promise.all(
+                    tutorApprovals.map(async (approval) => {
+                        // Get detailed lesson breakdown for this period
+                        const lessons = await LessonModel.find({
+                            _id: { $in: approval.lessonIds },
+                        });
+
+                        const onlineLessons = lessons.filter(lesson => lesson.type === 'online');
+                        const inPersonLessons = lessons.filter(lesson => lesson.type === 'in-person');
+
+                        const onlineHours = onlineLessons.reduce((sum, lesson) => sum + lesson.duration / 60, 0);
+                        const inPersonHours = inPersonLessons.reduce((sum, lesson) => sum + lesson.duration / 60, 0);
+                        const totalHours = onlineHours + inPersonHours;
+
+                        const baseSalary = totalHours * tutor.hourlyRate;
+                        const inPersonBonus = inPersonHours * 5; // $5 per hour for in-person
+                        const totalSalary = baseSalary + inPersonBonus;
+                        const invoiceAmount = totalSalary * 1.15; // 15% markup
+
+                        return {
+                            periodStart: format(approval.periodStart, 'MMM dd, yyyy'),
+                            periodEnd: format(approval.periodEnd, 'MMM dd, yyyy'),
+                            totalHours,
+                            onlineHours,
+                            inPersonHours,
+                            onlineLessons: onlineLessons.length,
+                            inPersonLessons: inPersonLessons.length,
+                            baseSalary,
+                            inPersonBonus,
+                            totalSalary,
+                            invoiceAmount,
+                            status: approval.status,
+                            approvalId: approval._id,
+                        };
+                    })
+                );
+
+                enhancedData.push({
+                    tutorId: tutor._id.toString(),
+                    tutorName: tutor.fullName,
+                    tutorEmail: tutor.email,
+                    hourlyRate: tutor.hourlyRate,
+                    periods,
+                });
+            }
+
+            return enhancedData;
+        } catch (error) {
+            logger.error(
+                `Failed to get enhanced earnings data: ${error instanceof Error ? error.message : "Unknown error"}`,
+                error
+            );
+            throw new BadRequestError("Failed to fetch enhanced earnings data");
+        }
+    }
+
+    // Process period approval
+    async processPeriodApproval(
+        tutorId: string,
+        periodStart: string,
+        periodEnd: string,
+        adminId: string,
+        decision: "approved" | "rejected"
+    ): Promise<IEarningsApproval> {
+        try {
+            // Parse formatted dates like "Jul 14, 2025" to Date objects
+            const startDate = new Date(periodStart);
+            const endDate = new Date(periodEnd);
+
+            // Validate dates
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                throw new BadRequestError("Invalid date format provided");
+            }
+
+            // Find approval by tutor and date range with more flexible matching
+            const approvals = await EarningsApprovalModel.find({
+                tutorId: new Types.ObjectId(tutorId),
+            }).sort({ periodStart: -1 });
+
+            // Find the matching approval by comparing formatted dates
+            const approval = approvals.find(approval => {
+                const dbStartFormatted = format(approval.periodStart, 'MMM dd, yyyy');
+                const dbEndFormatted = format(approval.periodEnd, 'MMM dd, yyyy');
+                return dbStartFormatted === periodStart && dbEndFormatted === periodEnd;
+            });
+
+            if (!approval) {
+                throw new NotFoundError("Earnings approval not found for this period");
+            }
+
+            if (approval.status !== "pending") {
+                throw new BadRequestError("Earnings approval has already been processed");
+            }
+
+            approval.status = decision;
+            approval.approvedBy = new Types.ObjectId(adminId);
+            approval.approvedAt = new Date();
+
+            await approval.save();
+
+            // Send email notification to tutor
+            try {
+                const tutor = await TutorModel.findById(tutorId);
+                if (tutor) {
+                    await this.emailService.sendPaymentApprovalEmail({
+                        tutorEmail: tutor.email,
+                        tutorName: tutor.fullName,
+                        periodStart: format(startDate, 'MMM dd, yyyy'),
+                        periodEnd: format(endDate, 'MMM dd, yyyy'),
+                        totalHours: approval.totalHours,
+                        totalAmount: approval.totalAmount,
+                        decision: decision,
+                        dashboardUrl: process.env.FRONTEND_URL || "https://shaheerazam.github.io/matte-hjelp-connect/"
+                    });
+                }
+            } catch (emailError) {
+                logger.error(`Failed to send payment approval email: ${emailError instanceof Error ? emailError.message : "Unknown error"}`);
+                // Don't throw error for email failures, just log them
+            }
+
+            logger.info(
+                `Period earnings approval ${approval._id} ${decision} by admin ${adminId} for tutor ${tutorId}`
+            );
+
+            return approval;
+        } catch (error) {
+            logger.error(
+                `Failed to process period approval: ${error instanceof Error ? error.message : "Unknown error"}`,
+                error
+            );
+            throw error;
         }
     }
 } 

@@ -124,4 +124,68 @@ export async function getTutorEarnings(
         );
         next(error);
     }
+}
+
+// Get enhanced earnings data for admin dashboard
+export async function getEnhancedEarningsData(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+) {
+    try {
+        if (req.user!.userType !== "admin") {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
+        const enhancedData = await earningsApprovalService.getEnhancedEarningsData();
+        res.status(200).json({
+            message: "Enhanced earnings data fetched successfully",
+            data: enhancedData,
+        });
+    } catch (error) {
+        logger.error(
+            `Get enhanced earnings data error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            error
+        );
+        next(error);
+    }
+}
+
+// Approve or reject specific period earnings
+export async function processPeriodApproval(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+) {
+    try {
+        if (req.user!.userType !== "admin") {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
+        const { tutorId, periodStart, periodEnd } = req.params;
+        const { decision } = req.body; // "approved" or "rejected"
+
+        if (!["approved", "rejected"].includes(decision)) {
+            return res.status(400).json({ message: "Invalid decision. Must be 'approved' or 'rejected'" });
+        }
+
+        const approval = await earningsApprovalService.processPeriodApproval(
+            tutorId,
+            periodStart,
+            periodEnd,
+            req.user!.userId,
+            decision
+        );
+
+        res.status(200).json({
+            message: `Period earnings ${decision} successfully`,
+            data: approval,
+        });
+    } catch (error) {
+        logger.error(
+            `Process period approval error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            error
+        );
+        next(error);
+    }
 } 

@@ -198,7 +198,7 @@ export async function updateLesson(
         tutorId: lesson.tutorId,
         studentId: lesson.studentId,
         status: mapStatus(lesson.status),
-        subject: lesson.subject,
+        level: lesson.level,
         topic: lesson.topic,
         type: lesson.type,
         location: lesson.location,
@@ -259,11 +259,50 @@ export async function updateExpiredLessons(
 
     await lessonService.updateExpiredLessons();
     res.status(200).json({
-      message: "Expired lessons updated successfully"
+      message: "Expired lessons updated successfully",
     });
   } catch (error) {
     logger.error(
       `Update expired lessons error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      error
+    );
+    next(error);
+  }
+}
+
+export async function bulkUpdateLessons(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { lessonIds, updateData } = req.body;
+    const updatedLessons = await lessonService.bulkUpdateLessons(
+      lessonIds,
+      updateData,
+      req.user!.userId,
+      req.user!.userType
+    );
+    res.status(200).json({
+      message: `Successfully updated ${updatedLessons.length} lessons`,
+      data: updatedLessons.map((lesson) => ({
+        id: lesson._id,
+        lessonDate: lesson.lessonDate,
+        lessonTime: lesson.lessonTime,
+        duration: lesson.duration,
+        level: lesson.level,
+        topic: lesson.topic,
+        type: lesson.type,
+        location: lesson.location,
+        tutorId: lesson.tutorId,
+        studentId: lesson.studentId,
+        status: mapStatus(lesson.status),
+        bundleId: lesson.bundleId,
+      })),
+    });
+  } catch (error) {
+    logger.error(
+      `Bulk update lessons error: ${error instanceof Error ? error.message : "Unknown error"}`,
       error
     );
     next(error);

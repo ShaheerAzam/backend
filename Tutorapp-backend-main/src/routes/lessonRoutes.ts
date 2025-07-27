@@ -8,6 +8,7 @@ import {
   rescheduleLesson,
   updateLesson,
   updateExpiredLessons,
+  bulkUpdateLessons,
 } from "../controllers/lessonController";
 import { validateRequest } from "../middleware/validateRequest";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -16,6 +17,7 @@ import {
   createLessonBundleSchema,
   rescheduleLessonSchema,
   cancelLessonSchema,
+  bulkUpdateLessonsSchema,
 } from "../utils/validationSchemas";
 
 const router = Router();
@@ -59,6 +61,13 @@ router.patch(
   "/:lessonId/complete",
   authMiddleware(),
   completeLesson
+);
+
+router.post(
+  "/bulk-update",
+  authMiddleware("admin"),
+  validateRequest(bulkUpdateLessonsSchema),
+  bulkUpdateLessons
 );
 
 router.post(

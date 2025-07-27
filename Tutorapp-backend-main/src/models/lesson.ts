@@ -5,7 +5,7 @@ export interface ILesson extends Document {
   lessonDate: Date;
   lessonTime: string;
   duration: number;
-  subject: string;
+  level: "1st grade" | "2nd grade" | "3rd grade" | "4th grade" | "5th grade" | "6th grade" | "7th grade" | "8th grade" | "9th grade" | "10th grade" | "1T" | "1P" | "2P" | "S1" | "R1" | "S2" | "R2";
   topic: string;
   type: "online" | "in-person";
   location?: string;
@@ -23,7 +23,12 @@ const lessonSchema = new Schema<ILesson>(
     lessonDate: { type: Date, required: true },
     lessonTime: { type: String, required: true, trim: true },
     duration: { type: Number, required: true, min: 1 },
-    subject: { type: String, required: true, trim: true },
+    level: {
+      type: String,
+      required: true,
+      enum: ["1st grade", "2nd grade", "3rd grade", "4th grade", "5th grade", "6th grade", "7th grade", "8th grade", "9th grade", "10th grade", "1T", "1P", "2P", "S1", "R1", "S2", "R2"],
+      trim: true
+    },
     topic: { type: String, required: true, trim: true },
     type: { type: String, enum: ["online", "in-person"], default: "online" },
     location: { type: String, default: undefined, trim: true },
