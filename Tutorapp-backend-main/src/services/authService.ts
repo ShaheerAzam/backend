@@ -7,6 +7,8 @@ import { LoginDto, RefreshTokenDto, LogoutDto } from "../dtos/authDto";
 import { BadRequestError, UnauthorizedError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import type { SignOptions, Secret } from "jsonwebtoken";
+import crypto from "crypto";
+import { EmailService } from "./emailService";
 
 interface AuthResponse {
   accessToken: string;
@@ -46,7 +48,7 @@ export class AuthService {
     // Verify password
     const isMatch = await bcrypt.compare(dto.password, user.password);
     if (!isMatch) {
-      
+
       logger.warn(`Invalid password for ${userType}: ${dto.email}`);
       throw new UnauthorizedError("Invalid email or password");
     }
@@ -189,5 +191,81 @@ export class AuthService {
       if (tutor) return { user: tutor, userType: "tutor" };
     }
     return null;
+  }
+
+  async forgotPassword(email: string): Promise<void> {
+    const userData = await this.findUser(email);
+    if (!userData) {
+      // Don't reveal if user exists or not for security
+      logger.info(`Forgot password request for non-existent email: ${email}`);
+      return;
+    }
+
+    const { user, userType } = userData;
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Store reset token in user document
+    user.resetToken = resetToken;
+    user.resetTokenExpiry = resetTokenExpiry;
+    await user.save();
+
+    // Send email with reset link
+    const emailService = new EmailService();
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:8080";
+    const resetLink = `${frontendUrl}/#/reset-password?token=${resetToken}`;
+
+    logger.info(`Using frontend URL: ${frontendUrl} for password reset link`);
+
+    await emailService.sendPasswordResetEmail({
+      email,
+      name: userType === "admin" ? "Admin" : userType === "student" ? (user as any).studentName : (user as any).fullName,
+      resetLink
+    });
+
+    logger.info(`Password reset email sent to ${userType}: ${email}`);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    // Find user by reset token
+    let user = await AdminModel.findOne({
+      resetToken: token,
+      resetTokenExpiry: { $gt: new Date() }
+    });
+    let userType: "admin" | "student" | "tutor" = "admin";
+
+    if (!user) {
+      user = await StudentModel.findOne({
+        resetToken: token,
+        resetTokenExpiry: { $gt: new Date() }
+      });
+      userType = "student";
+    }
+
+    if (!user) {
+      user = await TutorModel.findOne({
+        resetToken: token,
+        resetTokenExpiry: { $gt: new Date() }
+      });
+      userType = "tutor";
+    }
+
+    if (!user) {
+      logger.warn(`Invalid or expired reset token: ${token}`);
+      throw new BadRequestError("Invalid or expired reset token");
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Update password and clear reset token
+    user.password = hashedPassword;
+    user.resetToken = undefined;
+    user.resetTokenExpiry = undefined;
+    await user.save();
+
+    logger.info(`Password reset successful for ${userType}: ${user.email}`);
   }
 }

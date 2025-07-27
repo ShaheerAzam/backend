@@ -5,6 +5,8 @@ export interface IAdmin extends Document {
   email: string;
   password: string;
   refreshToken?: string;
+  resetToken?: string;
+  resetTokenExpiry?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,6 +22,8 @@ const adminSchema = new Schema<IAdmin>(
     },
     password: { type: String, required: true },
     refreshToken: { type: String, default: null },
+    resetToken: { type: String },
+    resetTokenExpiry: { type: Date },
   },
   { timestamps: true }
 );

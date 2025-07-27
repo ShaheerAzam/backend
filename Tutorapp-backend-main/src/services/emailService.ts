@@ -93,6 +93,12 @@ interface PaymentApprovalData {
   dashboardUrl: string;
 }
 
+interface PasswordResetData {
+  email: string;
+  name: string;
+  resetLink: string;
+}
+
 export class EmailService {
   private transporter: nodemailer.Transporter;
 
@@ -261,6 +267,25 @@ export class EmailService {
     } catch (error) {
       logger.error(`Failed to send payment ${data.decision} email to ${data.tutorEmail}:`, error);
       throw new Error(`Failed to send payment ${data.decision} email`);
+    }
+  }
+
+  async sendPasswordResetEmail(data: PasswordResetData): Promise<void> {
+    try {
+      const subject = `Password Reset Request - Ebbas Mattehjelp`;
+      const htmlContent = this.generatePasswordResetHtml(data);
+
+      await this.transporter.sendMail({
+        from: process.env.FROM_EMAIL || "noreply@ebbasmattehjelp.com",
+        to: data.email,
+        subject,
+        html: htmlContent,
+      });
+
+      logger.info(`Password reset email sent to ${data.email}`);
+    } catch (error) {
+      logger.error(`Failed to send password reset email to ${data.email}:`, error);
+      throw new Error("Failed to send password reset email");
     }
   }
 
@@ -863,6 +888,53 @@ export class EmailService {
               <p>
                 <a href="${data.dashboardUrl}" class="button">View Earnings Details</a>
               </p>
+              
+              <p>Best regards,<br>The Ebbas Mattehjelp Team</p>
+            </div>
+            
+            <div class="footer">
+              <p>This is an automated message. Please do not reply to this email.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  private generatePasswordResetHtml(data: PasswordResetData): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Password Reset Request</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #e3f2fd; padding: 20px; text-align: center; border-radius: 8px; }
+            .content { padding: 20px 0; }
+            .reset-link { background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; }
+            .button { display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+            .footer { text-align: center; color: #666; font-size: 14px; margin-top: 30px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Password Reset Request</h1>
+              <p>You have requested to reset your password for your Ebbas Mattehjelp account.</p>
+            </div>
+            
+            <div class="content">
+              <p>Hello ${data.name},</p>
+              
+              <p>We have received a request to reset the password for your Ebbas Mattehjelp account. To proceed with the password reset, please click the link below:</p>
+              
+              <div class="reset-link">
+                <p><strong>Reset Link:</strong> <a href="${data.resetLink}">${data.resetLink}</a></p>
+              </div>
+              
+              <p>If you did not request this password reset, please ignore this email.</p>
               
               <p>Best regards,<br>The Ebbas Mattehjelp Team</p>
             </div>

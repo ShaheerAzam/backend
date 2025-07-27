@@ -40,6 +40,15 @@ export const logoutSchema = z.object({
   email: z.string().email("Invalid email address").trim(),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Invalid email address").trim(),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Reset token is required"),
+  newPassword: z.string().min(8, "New password must be at least 8 characters"),
+});
+
 export const createLessonSchema = z.object({
   lessonDate: z.string().min(1, "Lesson date is required"),
   lessonTime: z.string().min(1, "Lesson time is required"),

@@ -12,10 +12,10 @@ const authService = new AuthService();
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const dto: LoginDto = req.body;
-  
+
     const { accessToken, refreshToken, userType, userId, name, email } =
       await authService.login(dto);
-    
+
     res.status(200).json({
       message: "Login successful",
       data: { accessToken, refreshToken, userType, userId, name, email },
@@ -86,6 +86,36 @@ export async function getCurrentUser(
     res.status(200).json({ message: "User fetched", data: user });
   } catch (error) {
     logger.error(`Get current user error: ${error instanceof Error ? error.message : "Unknown error"}`, error);
+    next(error);
+  }
+}
+
+export async function forgotPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { email } = req.body;
+    await authService.forgotPassword(email);
+    res.status(200).json({
+      message: "If an account with that email exists, a password reset link has been sent."
+    });
+  } catch (error) {
+    logger.error(
+      `Forgot password error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      error
+    );
+    next(error);
+  }
+}
+
+export async function resetPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { token, newPassword } = req.body;
+    await authService.resetPassword(token, newPassword);
+    res.status(200).json({ message: "Password has been reset successfully" });
+  } catch (error) {
+    logger.error(
+      `Reset password error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      error
+    );
     next(error);
   }
 }
