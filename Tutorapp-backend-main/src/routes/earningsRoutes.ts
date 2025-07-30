@@ -6,6 +6,8 @@ import {
     getTutorEarnings,
     getEnhancedEarningsData,
     processPeriodApproval,
+    getEarningsConfig,
+    updateEarningsConfig,
 } from "../controllers/earningsController";
 import { authMiddleware } from "../middleware/authMiddleware";
 
@@ -48,7 +50,7 @@ router.post("/test-email", authMiddleware("admin"), async (req, res) => {
     try {
         const { EmailService } = await import("../services/emailService");
         const emailService = new EmailService();
-        
+
         // Test welcome email
         await emailService.sendWelcomeEmail({
             email: "test@example.com",
@@ -57,7 +59,7 @@ router.post("/test-email", authMiddleware("admin"), async (req, res) => {
             tempPassword: "temp123",
             dashboardUrl: "https://shaheerazam.github.io/matte-hjelp-connect/"
         });
-        
+
         res.status(200).json({ message: "Test email sent successfully" });
     } catch (error) {
         res.status(500).json({ message: "Failed to send test email", error: error instanceof Error ? error.message : "Unknown error" });
@@ -76,6 +78,19 @@ router.get(
     "/tutor-earnings/:tutorId",
     authMiddleware("admin"),
     getTutorEarnings
+);
+
+// Earnings configuration routes (admin only)
+router.get(
+    "/config",
+    authMiddleware("admin"),
+    getEarningsConfig
+);
+
+router.put(
+    "/config",
+    authMiddleware("admin"),
+    updateEarningsConfig
 );
 
 export default router; 

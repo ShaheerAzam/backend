@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { EarningsApprovalService } from "../services/earningsApprovalService";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
 import { logger } from "../utils/logger";
+import { EarningsConfigModel } from "../models/earningsConfig";
 
 const earningsApprovalService = new EarningsApprovalService();
 
@@ -184,6 +185,92 @@ export async function processPeriodApproval(
     } catch (error) {
         logger.error(
             `Process period approval error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            error
+        );
+        next(error);
+    }
+}
+
+// Get earnings configuration (admin only)
+export async function getEarningsConfig(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+) {
+    try {
+        if (req.user!.userType !== "admin") {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
+        let config = await EarningsConfigModel.findOne();
+        if (!config) {
+            // Create default configuration if none exists
+            config = await EarningsConfigModel.create({
+                inPersonBonus: 5,
+                invoiceMarkup: 15,
+            });
+        }
+
+        res.status(200).json({
+            message: "Earnings configuration fetched successfully",
+            data: {
+                inPersonBonus: config.inPersonBonus,
+                invoiceMarkup: config.invoiceMarkup,
+            },
+        });
+    } catch (error) {
+        logger.error(
+            `Get earnings config error: ${error instanceof Error ? error.message : "Unknown error"}`,
+            error
+        );
+        next(error);
+    }
+}
+
+// Update earnings configuration (admin only)
+export async function updateEarningsConfig(
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+) {
+    try {
+        if (req.user!.userType !== "admin") {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
+        const { inPersonBonus, invoiceMarkup } = req.body;
+
+        // Validate input
+        if (typeof inPersonBonus !== 'number' || inPersonBonus < 0) {
+            return res.status(400).json({ message: "Invalid inPersonBonus value" });
+        }
+
+        if (typeof invoiceMarkup !== 'number' || invoiceMarkup < 0 || invoiceMarkup > 100) {
+            return res.status(400).json({ message: "Invalid invoiceMarkup value (must be between 0 and 100)" });
+        }
+
+        let config = await EarningsConfigModel.findOne();
+        if (!config) {
+            config = await EarningsConfigModel.create({
+                inPersonBonus,
+                invoiceMarkup,
+            });
+        } else {
+            config.inPersonBonus = inPersonBonus;
+            config.invoiceMarkup = invoiceMarkup;
+            await config.save();
+        }
+
+        res.status(200).json({
+            message: "Earnings configuration updated successfully",
+            data: {
+                inPersonBonus: config.inPersonBonus,
+                invoiceMarkup: config.invoiceMarkup,
+            },
+        });
+    } catch (error) {
+        logger.error(
+            `Update earnings config error: ${error instanceof Error ? error.message : "Unknown error"}`,
             error
         );
         next(error);
