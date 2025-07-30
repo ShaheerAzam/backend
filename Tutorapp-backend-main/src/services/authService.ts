@@ -17,6 +17,7 @@ interface AuthResponse {
   userId: string;
   name?: string;
   email: string;
+  hourlyRate?: number;
 }
 
 export class AuthService {
@@ -89,9 +90,10 @@ export class AuthService {
 
     const nameField = userType === "admin" ? undefined : (userType === "student" ? (user as any).studentName : (user as any).fullName);
     const email = (user as any).email;
+    const hourlyRate = userType === "tutor" ? (user as any).hourlyRate : undefined;
 
     logger.info(`Successful login for ${userType}: ${dto.email}`);
-    return { accessToken, refreshToken, userType, userId: user._id.toString(), name: nameField, email };
+    return { accessToken, refreshToken, userType, userId: user._id.toString(), name: nameField, email, hourlyRate };
   }
 
   async refreshToken(dto: RefreshTokenDto): Promise<AuthResponse> {
@@ -141,6 +143,7 @@ export class AuthService {
 
       const nameField = userType === "admin" ? undefined : (userType === "student" ? (user as any).studentName : (user as any).fullName);
       const email = (user as any).email;
+      const hourlyRate = userType === "tutor" ? (user as any).hourlyRate : undefined;
 
       logger.info(`Access token refreshed for ${userType}: ${user.email}`);
       return {
@@ -150,6 +153,7 @@ export class AuthService {
         userId: user._id.toString(),
         name: nameField,
         email,
+        hourlyRate,
       };
     } catch (error) {
       const errorMessage =

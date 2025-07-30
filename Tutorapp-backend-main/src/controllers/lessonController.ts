@@ -174,6 +174,39 @@ export async function cancelLesson(
   }
 }
 
+export async function undoLessonCancellation(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const lessonId = req.params.lessonId;
+    const lesson = await lessonService.undoLessonCancellation(
+      lessonId,
+      req.user!.userId,
+      req.user!.userType
+    );
+    res.status(200).json({
+      message: "Lesson cancellation undone successfully",
+      data: {
+        id: lesson._id,
+        lessonDate: lesson.lessonDate,
+        lessonTime: lesson.lessonTime,
+        duration: lesson.duration,
+        tutorId: lesson.tutorId,
+        studentId: lesson.studentId,
+        status: mapStatus(lesson.status),
+      },
+    });
+  } catch (error) {
+    logger.error(
+      `Undo lesson cancellation error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      error
+    );
+    next(error);
+  }
+}
+
 export async function updateLesson(
   req: AuthenticatedRequest,
   res: Response,

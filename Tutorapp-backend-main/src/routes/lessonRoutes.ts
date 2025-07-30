@@ -6,6 +6,7 @@ import {
   createLessonBundle,
   getLessons,
   rescheduleLesson,
+  undoLessonCancellation,
   updateLesson,
   updateExpiredLessons,
   bulkUpdateLessons,
@@ -55,6 +56,13 @@ router.patch(
   authMiddleware(),
   validateRequest(cancelLessonSchema),
   cancelLesson
+);
+
+router.patch(
+  "/:lessonId/undo-cancel",
+  authMiddleware(),
+  validateRequest(cancelLessonSchema),
+  undoLessonCancellation
 );
 
 router.patch(

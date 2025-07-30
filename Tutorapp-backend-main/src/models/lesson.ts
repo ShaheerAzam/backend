@@ -14,6 +14,7 @@ export interface ILesson extends Document {
   status: "Incoming" | "Active" | "Completed" | "Cancelled";
   bundleId?: Types.ObjectId | null;
   tutorPaid: boolean;
+  cancelledAt?: Date; // When the lesson was cancelled
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +42,7 @@ const lessonSchema = new Schema<ILesson>(
     },
     bundleId: { type: Schema.Types.ObjectId, default: null },
     tutorPaid: { type: Boolean, default: false },
+    cancelledAt: { type: Date, default: null }, // When the lesson was cancelled
   },
   { timestamps: true }
 );

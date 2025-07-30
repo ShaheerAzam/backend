@@ -13,12 +13,12 @@ export async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const dto: LoginDto = req.body;
 
-    const { accessToken, refreshToken, userType, userId, name, email } =
+    const { accessToken, refreshToken, userType, userId, name, email, hourlyRate } =
       await authService.login(dto);
 
     res.status(200).json({
       message: "Login successful",
-      data: { accessToken, refreshToken, userType, userId, name, email },
+      data: { accessToken, refreshToken, userType, userId, name, email, hourlyRate },
     });
   } catch (error) {
     logger.error(
@@ -36,11 +36,11 @@ export async function refreshToken(
 ) {
   try {
     const dto: RefreshTokenDto = req.body;
-    const { accessToken, refreshToken, userType, userId, name, email } =
+    const { accessToken, refreshToken, userType, userId, name, email, hourlyRate } =
       await authService.refreshToken(dto);
     res.status(200).json({
       message: "Token refreshed successfully",
-      data: { accessToken, refreshToken, userType, userId, name, email },
+      data: { accessToken, refreshToken, userType, userId, name, email, hourlyRate },
     });
   } catch (error) {
     logger.error(

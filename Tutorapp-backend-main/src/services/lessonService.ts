@@ -27,6 +27,7 @@ interface LessonResponse {
   status: string;
   bundleId?: Types.ObjectId | null;
   tutorPaid?: boolean;
+  cancelledAt?: Date;
 }
 
 // Type for populated lesson document after lean()
@@ -44,6 +45,7 @@ interface PopulatedLesson {
   studentId: { _id: Types.ObjectId; studentName: string };
   bundleId?: Types.ObjectId | null;
   tutorPaid: boolean;
+  cancelledAt?: Date;
   _id: Types.ObjectId;
   __v?: number;
 }
@@ -308,7 +310,7 @@ export class LessonService {
         .populate("tutorId", "fullName")
         .populate("studentId", "studentName")
         .sort({ lessonDate: 1 })
-        .lean()) as unknown as PopulatedLesson[];
+        .lean()) as any[];
 
       return lessons.map((lesson) => ({
         lessonId: lesson._id,
@@ -326,6 +328,7 @@ export class LessonService {
         status: this.mapStatus(lesson.status),
         bundleId: lesson.bundleId,
         tutorPaid: lesson.tutorPaid,
+        cancelledAt: lesson.cancelledAt,
       }));
     } catch (error) {
       logger.error(
@@ -468,6 +471,7 @@ export class LessonService {
     }
 
     lesson.status = "Cancelled";
+    lesson.cancelledAt = new Date(); // Track when the lesson was cancelled
 
     // Check if student is cancelling within 24 hours of lesson start time
     if (requesterType === "student") {
@@ -534,6 +538,118 @@ export class LessonService {
         error
       );
       throw new BadRequestError("Failed to cancel lesson");
+    }
+  }
+
+  async undoLessonCancellation(
+    lessonId: string,
+    requesterId: string,
+    requesterType: string
+  ): Promise<ILesson> {
+    if (
+      requesterType !== "admin" &&
+      requesterType !== "student" &&
+      requesterType !== "tutor"
+    ) {
+      logger.warn(
+        `Unauthorized undo cancel attempt by ${requesterType}: ${requesterId}`
+      );
+      throw new UnauthorizedError(
+        "Only admins, students, or tutors can undo lesson cancellation"
+      );
+    }
+
+    const lesson = await LessonModel.findById(lessonId);
+    if (!lesson) {
+      logger.warn(`Lesson not found: ${lessonId}`);
+      throw new BadRequestError("Lesson not found");
+    }
+
+    if (lesson.status !== "Cancelled") {
+      logger.warn(`Lesson is not cancelled: ${lessonId}`);
+      throw new BadRequestError("Lesson is not cancelled");
+    }
+
+    if (
+      (requesterType === "student" &&
+        lesson.studentId.toString() !== requesterId) ||
+      (requesterType === "tutor" && lesson.tutorId.toString() !== requesterId)
+    ) {
+      logger.warn(
+        `${requesterType} ${requesterId} not authorized to undo cancel lesson ${lessonId}`
+      );
+      throw new UnauthorizedError(
+        "You are not authorized to undo cancellation for this lesson"
+      );
+    }
+
+    // Check if it's within 24 hours of the lesson start time
+    const now = new Date();
+    const lessonDateTime = new Date(lesson.lessonDate);
+    const [hours, minutes] = lesson.lessonTime.split(":").map(Number);
+    lessonDateTime.setHours(hours, minutes, 0, 0);
+
+    const hoursUntilLesson = (lessonDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+    if (hoursUntilLesson < 0) {
+      logger.warn(`Cannot undo cancellation for past lesson: ${lessonId}`);
+      throw new BadRequestError("Cannot undo cancellation for a lesson that has already passed");
+    }
+
+    if (hoursUntilLesson < 24) {
+      logger.warn(`Cannot undo cancellation when less than 24 hours remain before lesson: ${lessonId}`);
+      throw new BadRequestError("Cannot undo cancellation when less than 24 hours remain before the lesson");
+    }
+
+    // Restore the lesson to scheduled status
+    lesson.status = this.determineStatus(lesson.lessonDate, lesson.lessonTime, lesson.duration);
+    lesson.cancelledAt = undefined;
+    lesson.tutorPaid = false; // Reset tutor paid status
+
+    try {
+      await lesson.save();
+
+      // Send email notifications
+      try {
+        const [tutor, student] = await Promise.all([
+          TutorModel.findById(lesson.tutorId),
+          StudentModel.findById(lesson.studentId)
+        ]);
+
+        if (tutor && student) {
+          await this.emailService.sendLessonRescheduleEmail({
+            tutorEmail: tutor.email,
+            tutorName: tutor.fullName,
+            studentEmail: student.email,
+            studentName: student.studentName,
+            oldDate: lesson.lessonDate,
+            oldTime: lesson.lessonTime,
+            newDate: lesson.lessonDate,
+            newTime: lesson.lessonTime,
+            duration: lesson.duration,
+            level: lesson.level,
+            topic: lesson.topic,
+            type: lesson.type,
+            location: lesson.location,
+            rescheduledBy: requesterType as "tutor" | "admin",
+            dashboardUrl: process.env.FRONTEND_URL || "https://shaheerazam.github.io/matte-hjelp-connect/"
+          });
+        }
+      } catch (emailError) {
+        logger.error(`Failed to send lesson restoration emails: ${emailError instanceof Error ? emailError.message : "Unknown error"}`);
+        // Don't throw error for email failures, just log them
+      }
+
+      logger.info(
+        `Lesson cancellation undone: ${lessonId} by ${requesterType} ${requesterId}`
+      );
+      return lesson;
+    } catch (error) {
+      logger.error(
+        `Failed to undo lesson cancellation ${lessonId}: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error
+      );
+      throw new BadRequestError("Failed to undo lesson cancellation");
     }
   }
 
@@ -696,6 +812,15 @@ export class LessonService {
     }
     if (updateData.lessonTime !== undefined) {
       updateFields.lessonTime = updateData.lessonTime;
+    }
+    if (updateData.lessonDate !== undefined) {
+      updateFields.lessonDate = new Date(updateData.lessonDate);
+      // Update status based on new date
+      updateFields.status = this.determineStatus(
+        new Date(updateData.lessonDate),
+        updateData.lessonTime || existingLessons[0].lessonTime,
+        updateData.duration || existingLessons[0].duration
+      );
     }
     if (updateData.tutorId !== undefined) {
       // Validate tutor exists

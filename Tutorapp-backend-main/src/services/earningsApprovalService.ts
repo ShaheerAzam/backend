@@ -258,7 +258,7 @@ export class EarningsApprovalService {
                         const totalHours = onlineHours + inPersonHours;
 
                         const baseSalary = totalHours * tutor.hourlyRate;
-                        const inPersonBonus = inPersonHours * 5; // $5 per hour for in-person
+                        const inPersonBonus = inPersonLessons.length * 5; // $5 per lesson for in-person
                         const totalSalary = baseSalary + inPersonBonus;
                         const invoiceAmount = totalSalary * 1.15; // 15% markup
 
