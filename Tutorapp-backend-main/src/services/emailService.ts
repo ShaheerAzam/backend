@@ -108,8 +108,8 @@ export class EmailService {
       port: parseInt(process.env.SMTP_PORT || "587"),
       secure: false,
       auth: {
-        user: process.env.SMTP_USER || "muhammadshaheer645@gmail.com",
-        pass: process.env.SMTP_PASS || "tpvf isgx wppp ituh",
+        user: process.env.SMTP_USER || "ebbaengen@ebbasmattehjelp.com",
+        pass: process.env.SMTP_PASS || "lvjc yebk pobr gegs",
       },
     };
 
