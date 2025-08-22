@@ -194,6 +194,7 @@ export class LessonService {
         ]);
 
         if (tutor && student) {
+          logger.info("Part 1 ok")
           await this.emailService.sendLessonAssignmentEmail({
             tutorEmail: tutor.email,
             tutorName: tutor.fullName,
@@ -208,6 +209,7 @@ export class LessonService {
             location: dto.location,
             dashboardUrl: process.env.FRONTEND_URL! 
           });
+           logger.info("Part 2 ok")
         }
       } catch (emailError) {
         logger.error(`Failed to send lesson assignment emails: ${emailError instanceof Error ? emailError.message : "Unknown error"}`);

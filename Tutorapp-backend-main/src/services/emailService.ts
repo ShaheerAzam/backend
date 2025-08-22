@@ -137,6 +137,7 @@ export class EmailService {
 
   async sendLessonAssignmentEmail(data: LessonAssignmentData): Promise<void> {
     try {
+       logger.info(data.tutorEmail,data.studentEmail)
       const subject = `New Lesson Assigned - ${format(data.lessonDate, 'MMM dd, yyyy')} at ${data.lessonTime}`;
 
       // Send to tutor
