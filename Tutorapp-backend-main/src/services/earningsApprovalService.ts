@@ -170,7 +170,7 @@ export class EarningsApprovalService {
                         totalHours: approval.totalHours,
                         totalAmount: approval.totalAmount,
                         decision: decision,
-                        dashboardUrl: process.env.FRONTEND_URL || "https://shaheerazam.github.io/matte-hjelp-connect/"
+                        dashboardUrl: process.env.FRONTEND_URL 
                     });
                 }
             } catch (emailError) {

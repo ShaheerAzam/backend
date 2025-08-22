@@ -203,7 +203,7 @@ export class LessonService {
             topic: dto.topic,
             type: dto.type,
             location: dto.location,
-            dashboardUrl: process.env.FRONTEND_URL || "https://shaheerazam.github.io/matte-hjelp-connect/"
+            dashboardUrl: process.env.FRONTEND_URL 
           });
         }
       } catch (emailError) {
@@ -407,7 +407,7 @@ export class LessonService {
             type: lesson.type,
             location: lesson.location,
             rescheduledBy: requesterType as "tutor" | "admin",
-            dashboardUrl: process.env.FRONTEND_URL || "https://shaheerazam.github.io/matte-hjelp-connect/"
+            dashboardUrl: process.env.FRONTEND_URL 
           });
         }
       } catch (emailError) {
@@ -519,7 +519,7 @@ export class LessonService {
             topic: lesson.topic,
             cancelledBy: requesterType as "tutor" | "student" | "admin",
             tutorPaid: lesson.tutorPaid,
-            dashboardUrl: process.env.FRONTEND_URL || "https://shaheerazam.github.io/matte-hjelp-connect/"
+            dashboardUrl: process.env.FRONTEND_URL 
           });
         }
       } catch (emailError) {
@@ -632,7 +632,7 @@ export class LessonService {
             type: lesson.type,
             location: lesson.location,
             rescheduledBy: requesterType as "tutor" | "admin",
-            dashboardUrl: process.env.FRONTEND_URL || "https://shaheerazam.github.io/matte-hjelp-connect/"
+            dashboardUrl: process.env.FRONTEND_URL 
           });
         }
       } catch (emailError) {
@@ -906,7 +906,7 @@ export class LessonService {
           duration: lesson.duration,
           level: lesson.level,
           topic: lesson.topic,
-          dashboardUrl: process.env.FRONTEND_URL || "https://shaheerazam.github.io/matte-hjelp-connect/"
+          dashboardUrl: process.env.FRONTEND_URL
         });
       }
     } catch (emailError) {

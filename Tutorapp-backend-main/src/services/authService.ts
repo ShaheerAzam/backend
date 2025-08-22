@@ -58,7 +58,7 @@ export class AuthService {
     const accessSecret = process.env.JWT_ACCESS_SECRET as Secret;
     const refreshSecret = process.env.JWT_REFRESH_SECRET as Secret;
     if (!accessSecret || !refreshSecret) {
-      logger.error("JWT secrets are not defined");
+      logger.error(accessSecret);
       throw new BadRequestError("Server configuration error");
     }
 
