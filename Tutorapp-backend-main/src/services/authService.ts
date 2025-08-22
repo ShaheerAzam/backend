@@ -218,7 +218,7 @@ export class AuthService {
 
     // Send email with reset link
     const emailService = new EmailService();
-    const frontendUrl = process.env.FRONTEND_URL || " https://portal.ebbasmattehjelp.com/";
+    const frontendUrl = process.env.FRONTEND_URL
     const resetLink = `${frontendUrl}/#/reset-password?token=${resetToken}`;
 
     logger.info(`Using frontend URL: ${frontendUrl} for password reset link`);
