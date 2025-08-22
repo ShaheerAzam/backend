@@ -45,7 +45,7 @@ export class StudentService {
             name: savedStudent.studentName,
             role: "student",
             tempPassword: tempPassword,
-            dashboardUrl: process.env.FRONTEND_URL || "http://localhost:8080",
+            dashboardUrl: process.env.FRONTEND_URL || "https://portal.ebbasmattehjelp.com/",
           });
           logger.info(`Welcome email sent to student: ${savedStudent.email}`);
         } catch (emailError) {
