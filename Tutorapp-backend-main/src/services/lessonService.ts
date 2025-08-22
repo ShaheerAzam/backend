@@ -289,6 +289,36 @@ export class LessonService {
       logger.info(
         `Lesson bundle created: ${bundleId} with ${dto.numberOfLessons} lessons`
       );
+
+       try {
+        const [tutor, student] = await Promise.all([
+          TutorModel.findById(dto.tutorId),
+          StudentModel.findById(dto.studentId)
+        ]);
+
+        if (tutor && student) {
+          logger.info("Part 1 ok")
+          await this.emailService.sendLessonAssignmentEmail({
+            tutorEmail: tutor.email,
+            tutorName: tutor.fullName,
+            studentEmail: student.email,
+            studentName: student.studentName,
+            lessonDate: firstLessonDate,
+            lessonTime: dto.lessonTime,
+            duration: dto.duration,
+            level: dto.level,
+            topic: dto.topic,
+            type: dto.type,
+            location: dto.location,
+            dashboardUrl: process.env.FRONTEND_URL! 
+          });
+           logger.info("Part 2 ok")
+        }
+      } catch (emailError) {
+        logger.error(`Failed to send lesson assignment emails: ${emailError instanceof Error ? emailError.message : "Unknown error"}`);
+        // Don't throw error for email failures, just log them
+      }
+          
       return lessons;
     } catch (error) {
       logger.error(
