@@ -877,7 +877,7 @@ export class EmailService {
                 <h3>Payment Details:</h3>
                 <p><strong>Period:</strong> ${data.periodStart} to ${data.periodEnd}</p>
                 <p><strong>Total Hours:</strong> ${data.totalHours} hours</p>
-                <p><strong>Total Amount:</strong> $${data.totalAmount.toFixed(2)}</p>
+                <p><strong>Total Amount:</strong> NOK${data.totalAmount.toFixed(2)}</p>
                 <p><strong>Status:</strong> <span style="color: ${isApproved ? '#28a745' : '#dc3545'}; font-weight: bold;">${data.decision.toUpperCase()}</span></p>
               </div>
               
